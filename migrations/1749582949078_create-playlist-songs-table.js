@@ -1,18 +1,29 @@
-/**
- * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
- */
-export const shorthands = undefined;
+exports.shorthands = undefined;
 
-/**
- * @param pgm {import('node-pg-migrate').MigrationBuilder}
- * @param run {() => void | undefined}
- * @returns {Promise<void> | void}
- */
-export const up = (pgm) => {};
+exports.up = (pgm) => {
+  pgm.createTable('playlist_songs', {
+    id: {
+      type: 'VARCHAR(50)',
+      primaryKey: true,
+    },
+    playlist_id: {
+      type: 'VARCHAR(50)',
+      notNull: true,
+      references: 'playlists',
+      onDelete: 'cascade',
+    },
+    song_id: {
+      type: 'VARCHAR(50)',
+      notNull: true,
+      references: 'songs',
+      onDelete: 'cascade',
+    },
+  });
 
-/**
- * @param pgm {import('node-pg-migrate').MigrationBuilder}
- * @param run {() => void | undefined}
- * @returns {Promise<void> | void}
- */
-export const down = (pgm) => {};
+  // Tambahkan unique constraint untuk mencegah duplikasi lagu dalam playlist
+  pgm.addConstraint('playlist_songs', 'unique_playlist_id_and_song_id', 'UNIQUE(playlist_id, song_id)');
+};
+
+exports.down = (pgm) => {
+  pgm.dropTable('playlist_songs');
+};

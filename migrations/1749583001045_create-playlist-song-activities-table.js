@@ -1,18 +1,41 @@
-/**
- * @type {import('node-pg-migrate').ColumnDefinitions | undefined}
- */
-export const shorthands = undefined;
+exports.shorthands = undefined;
 
-/**
- * @param pgm {import('node-pg-migrate').MigrationBuilder}
- * @param run {() => void | undefined}
- * @returns {Promise<void> | void}
- */
-export const up = (pgm) => {};
+exports.up = (pgm) => {
+  pgm.createTable('playlist_song_activities', {
+    id: {
+      type: 'VARCHAR(50)',
+      primaryKey: true,
+    },
+    playlist_id: {
+      type: 'VARCHAR(50)',
+      notNull: true,
+      references: 'playlists',
+      onDelete: 'cascade',
+    },
+    song_id: {
+      type: 'VARCHAR(50)',
+      notNull: true,
+      references: 'songs',
+      onDelete: 'cascade',
+    },
+    user_id: {
+      type: 'VARCHAR(50)',
+      notNull: true,
+      references: 'users',
+      onDelete: 'cascade',
+    },
+    action: { // 'add' atau 'delete'
+      type: 'TEXT',
+      notNull: true,
+    },
+    time: {
+      type: 'TEXT',
+      notNull: true,
+      default: pgm.func('current_timestamp'),
+    },
+  });
+};
 
-/**
- * @param pgm {import('node-pg-migrate').MigrationBuilder}
- * @param run {() => void | undefined}
- * @returns {Promise<void> | void}
- */
-export const down = (pgm) => {};
+exports.down = (pgm) => {
+  pgm.dropTable('playlist_song_activities');
+};
