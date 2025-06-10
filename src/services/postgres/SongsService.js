@@ -37,7 +37,7 @@ class SongsService {
     const queryValues = [];
     const conditions = [];
 
-    // Kriteria Opsional 2: Query Parameter untuk Pencarian Lagu
+    // Query Parameter untuk Pencarian Lagu
     if (title) {
       conditions.push(`LOWER(title) LIKE LOWER('%${title}%')`);
     }

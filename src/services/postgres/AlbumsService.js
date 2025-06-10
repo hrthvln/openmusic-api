@@ -49,7 +49,7 @@ class AlbumsService {
       throw new NotFoundError('Album tidak ditemukan');
     }
 
-    // Kriteria Opsional 1: Memunculkan daftar lagu di dalam detail album
+    // Memunculkan daftar lagu di dalam detail album
     const songsQuery = {
       text: 'SELECT id, title, performer FROM songs WHERE "albumId" = $1',
       values: [id],
