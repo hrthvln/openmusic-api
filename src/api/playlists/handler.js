@@ -6,6 +6,7 @@ class PlaylistsHandler {
   constructor(service, validator) {
     this._service = service;
     this._validator = validator;
+    this._songsService = songsService;
 
     autoBind(this);
   }
@@ -60,10 +61,21 @@ class PlaylistsHandler {
     this._validator.validatePlaylistSongPayload(request.payload);
     const { playlistId } = request.params;
     const { songId } = request.payload;
-    const { id: credentialId } = request.auth.credentials;
+    const { id: credentialId } = request.auth.credentials; // userId dari JWT
 
-    await this._service.verifyPlaylistAccess(playlistId, credentialId); // Verifikasi akses (owner/kolaborator)
+    await this._service.verifyPlaylistAccess(playlistId, credentialId);
     await this._service.addSongToPlaylist(playlistId, songId);
+
+    // Catat aktivitas 
+    // Ambil judul lagu untuk aktivitas
+    const song = await this._songsService.getSongById(songId); // Menggunakan songsService
+    await this._service.addPlaylistActivity({
+      playlistId,
+      songId,
+      userId: credentialId, // userId dari JWT payload
+      action: 'add',
+      songTitle: song.title, // Judul lagu
+    });
 
     const response = h.response({
       status: 'success',
