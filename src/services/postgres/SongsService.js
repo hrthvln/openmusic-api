@@ -7,13 +7,11 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 
 class SongsService {
   constructor() {
-    // Membuat instance Pool untuk koneksi ke database PostgreSQL
     this._pool = new Pool();
   }
 
-  // Menambahkan lagu baru ke database
   async addSong({ title, year, genre, performer, duration, albumId }) {
-    const id = `song-${nanoid(16)}`; // Membuat ID unik untuk lagu
+    const id = `song-${nanoid(16)}`;
     const createdAt = new Date().toISOString();
     const updatedAt = createdAt;
 
@@ -31,13 +29,10 @@ class SongsService {
     return result.rows[0].id;
   }
 
-  // Mendapatkan semua lagu dari database, dengan opsi filter berdasarkan title dan performer
   async getSongs({ title, performer }) {
     let queryText = 'SELECT id, title, performer FROM songs';
-    const queryValues = [];
     const conditions = [];
 
-    // Query Parameter untuk Pencarian Lagu
     if (title) {
       conditions.push(`LOWER(title) LIKE LOWER('%${title}%')`);
     }
@@ -53,7 +48,6 @@ class SongsService {
     return result.rows;
   }
 
-  // Mendapatkan lagu berdasarkan ID dari database
   async getSongById(id) {
     const query = {
       text: 'SELECT id, title, year, genre, performer, duration, "albumId" FROM songs WHERE id = $1',
@@ -68,7 +62,6 @@ class SongsService {
     return result.rows[0];
   }
 
-  // Mengubah detail lagu berdasarkan ID di database
   async editSongById(id, { title, year, genre, performer, duration, albumId }) {
     const updatedAt = new Date().toISOString();
     const query = {
@@ -83,7 +76,6 @@ class SongsService {
     }
   }
 
-  // Menghapus lagu berdasarkan ID dari database
   async deleteSongById(id) {
     const query = {
       text: 'DELETE FROM songs WHERE id = $1 RETURNING id',

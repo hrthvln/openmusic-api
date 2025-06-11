@@ -3,20 +3,18 @@
 const autoBind = require('auto-bind');
 
 class PlaylistsHandler {
-
-constructor(service, validator, songsService) {
+  constructor(service, validator, songsService) { // <-- VERIFIKASI: songsService diterima
     this._service = service;
     this._validator = validator;
-    this._songsService = songsService;
+    this._songsService = songsService; // <-- VERIFIKASI: songsService disimpan
 
     autoBind(this);
   }
 
-  // Menambahkan playlist baru
   async postPlaylistHandler(request, h) {
     this._validator.validatePlaylistPayload(request.payload);
     const { name } = request.payload;
-    const { id: credentialId } = request.auth.credentials; // Mendapatkan userId dari JWT payload
+    const { id: credentialId } = request.auth.credentials;
 
     const playlistId = await this._service.addPlaylist({ name, owner: credentialId });
 
@@ -31,7 +29,6 @@ constructor(service, validator, songsService) {
     return response;
   }
 
-  // Mendapatkan semua playlist yang dimiliki atau dikolaborasikan oleh pengguna
   async getPlaylistsHandler(request, h) {
     const { id: credentialId } = request.auth.credentials;
     const playlists = await this._service.getPlaylists(credentialId);
@@ -43,12 +40,11 @@ constructor(service, validator, songsService) {
     };
   }
 
-  // Menghapus playlist berdasarkan ID
   async deletePlaylistByIdHandler(request, h) {
     const { id } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
-    await this._service.verifyPlaylistOwner(id, credentialId); // Verifikasi owner
+    await this._service.verifyPlaylistOwner(id, credentialId);
     await this._service.deletePlaylistById(id);
 
     return {
@@ -57,25 +53,23 @@ constructor(service, validator, songsService) {
     };
   }
 
-  // Menambahkan lagu ke playlist
   async postPlaylistSongHandler(request, h) {
     this._validator.validatePlaylistSongPayload(request.payload);
     const { playlistId } = request.params;
     const { songId } = request.payload;
-    const { id: credentialId } = request.auth.credentials; // userId dari JWT
+    const { id: credentialId } = request.auth.credentials;
 
     await this._service.verifyPlaylistAccess(playlistId, credentialId);
     await this._service.addSongToPlaylist(playlistId, songId);
 
-    // Catat aktivitas 
-    // Ambil judul lagu untuk aktivitas
-    const song = await this._songsService.getSongById(songId); // Menggunakan songsService
+    // Catat aktivitas (Kriteria Opsional 2)
+    const song = await this._songsService.getSongById(songId); // <-- VERIFIKASI: Panggilan ini
     await this._service.addPlaylistActivity({
       playlistId,
       songId,
-      userId: credentialId, // userId dari JWT payload
+      userId: credentialId,
       action: 'add',
-      songTitle: song.title, // Judul lagu
+      songTitle: song.title,
     });
 
     const response = h.response({
@@ -86,12 +80,11 @@ constructor(service, validator, songsService) {
     return response;
   }
 
-  // Mendapatkan daftar lagu di dalam playlist
   async getPlaylistSongsHandler(request, h) {
     const { playlistId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
-    await this._service.verifyPlaylistAccess(playlistId, credentialId); // Verifikasi akses (owner/kolaborator)
+    await this._service.verifyPlaylistAccess(playlistId, credentialId);
     const playlist = await this._service.getPlaylistSongs(playlistId);
 
     return {
@@ -102,15 +95,24 @@ constructor(service, validator, songsService) {
     };
   }
 
-  // Menghapus lagu dari playlist
   async deletePlaylistSongHandler(request, h) {
     this._validator.validatePlaylistSongPayload(request.payload);
     const { playlistId } = request.params;
     const { songId } = request.payload;
     const { id: credentialId } = request.auth.credentials;
 
-    await this._service.verifyPlaylistAccess(playlistId, credentialId); // Verifikasi akses (owner/kolaborator)
+    await this._service.verifyPlaylistAccess(playlistId, credentialId);
     await this._service.deleteSongFromPlaylist(playlistId, songId);
+
+    // Catat aktivitas (Kriteria Opsional 2)
+    const song = await this._songsService.getSongById(songId); // <-- VERIFIKASI: Panggilan ini
+    await this._service.addPlaylistActivity({
+      playlistId,
+      songId,
+      userId: credentialId,
+      action: 'delete',
+      songTitle: song.title,
+    });
 
     return {
       status: 'success',
@@ -118,12 +120,11 @@ constructor(service, validator, songsService) {
     };
   }
 
-  // Mendapatkan aktivitas playlist (Kriteria Opsional 2)
   async getPlaylistActivitiesHandler(request, h) {
     const { playlistId } = request.params;
     const { id: credentialId } = request.auth.credentials;
 
-    await this._service.verifyPlaylistAccess(playlistId, credentialId); // Verifikasi akses
+    await this._service.verifyPlaylistAccess(playlistId, credentialId);
     const activities = await this._service.getPlaylistActivities(playlistId);
 
     return {

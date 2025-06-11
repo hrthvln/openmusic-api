@@ -7,12 +7,11 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 const AuthorizationError = require('../../exceptions/AuthorizationError');
 
 class PlaylistsService {
-  constructor(collaborationsService) { // Menerima collaborationsService
+  constructor(collaborationsService) {
     this._pool = new Pool();
-    this._collaborationsService = collaborationsService; // Simpan instance collaborationsService
+    this._collaborationsService = collaborationsService;
   }
 
-  // Menambahkan playlist baru
   async addPlaylist({ name, owner }) {
     const id = `playlist-${nanoid(16)}`;
     const query = {
@@ -29,7 +28,6 @@ class PlaylistsService {
     return result.rows[0].id;
   }
 
-  // Mendapatkan semua playlist yang dimiliki atau dikolaborasikan oleh user
   async getPlaylists(owner) {
     const query = {
       text: `
@@ -46,7 +44,6 @@ class PlaylistsService {
     return result.rows;
   }
 
-  // Menghapus playlist berdasarkan ID
   async deletePlaylistById(id) {
     const query = {
       text: 'DELETE FROM playlists WHERE id = $1 RETURNING id',
@@ -60,9 +57,7 @@ class PlaylistsService {
     }
   }
 
-  // Menambahkan lagu ke playlist
   async addSongToPlaylist(playlistId, songId) {
-    // Verifikasi songId valid
     const songQuery = {
       text: 'SELECT id FROM songs WHERE id = $1',
       values: [songId],
@@ -84,17 +79,8 @@ class PlaylistsService {
     if (!result.rows[0].id) {
       throw new InvariantError('Lagu gagal ditambahkan ke playlist');
     }
-
-    // Catat aktivitas
-    // Anda perlu mendapatkan userId dari request.auth.credentials di handler
-    // dan title lagu dari songsService
-    // Untuk kesederhanaan di service, kita asumsikan ini akan ditangani di handler
-    // atau di service lain yang memanggil ini.
-    // Contoh:
-    // await this.addPlaylistActivity(playlistId, songId, userId, 'add');
   }
 
-  // Menghapus lagu dari playlist
   async deleteSongFromPlaylist(playlistId, songId) {
     const query = {
       text: 'DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2 RETURNING id',
@@ -106,13 +92,8 @@ class PlaylistsService {
     if (!result.rows.length) {
       throw new InvariantError('Lagu gagal dihapus dari playlist');
     }
-
-    // Catat aktivitas
-    // Contoh:
-    // await this.addPlaylistActivity(playlistId, songId, userId, 'delete');
   }
 
-  // Mendapatkan daftar lagu di dalam playlist
   async getPlaylistSongs(playlistId) {
     const query = {
       text: `
@@ -134,16 +115,14 @@ class PlaylistsService {
       throw new NotFoundError('Playlist tidak ditemukan');
     }
 
-    // Handle case where no songs are found for the playlist
     const playlist = result.rows[0];
-    if (playlist.songs[0].id === null) { // Jika tidak ada lagu, json_agg akan menghasilkan [{id: null, title: null, performer: null}]
+    if (playlist.songs[0].id === null) {
         playlist.songs = [];
     }
 
     return playlist;
   }
 
-  // Memverifikasi pemilik playlist
   async verifyPlaylistOwner(playlistId, owner) {
     const query = {
       text: 'SELECT owner FROM playlists WHERE id = $1',
@@ -162,7 +141,6 @@ class PlaylistsService {
     }
   }
 
-  // Memverifikasi akses playlist (owner atau kolaborator)
   async verifyPlaylistAccess(playlistId, userId) {
     try {
       await this.verifyPlaylistOwner(playlistId, userId);
@@ -173,23 +151,25 @@ class PlaylistsService {
       try {
         await this._collaborationsService.verifyCollaborator(playlistId, userId);
       } catch {
-        throw error; // Lempar error dari verifyPlaylistOwner jika bukan kolaborator
+        throw error;
       }
     }
   }
 
-  // Menambahkan aktivitas playlist (Kriteria Opsional 2)
-  async addPlaylistActivity(playlistId, songId, userId, action) {
+  async addPlaylistActivity({ playlistId, songId, userId, action, songTitle }) { // Menerima songTitle
     const id = `activity-${nanoid(16)}`;
     const time = new Date().toISOString();
     const query = {
+      // Perhatikan nama kolomnya di migrasi playlist_song_activities, seharusnya ada kolom untuk songTitle
+      // Karena migrasi saya tidak ada kolom songTitle, kita akan menggunakan JOIN di getPlaylistActivities
+      // sehingga kolom songTitle ini tidak perlu disimpan jika kolomnya tidak ada di tabel.
+      // Namun, untuk memenuhi kebutuhan Postman test, kita asumsikan getPlaylistActivities akan melakukan JOIN.
       text: 'INSERT INTO playlist_song_activities (id, playlist_id, song_id, user_id, action, time) VALUES($1, $2, $3, $4, $5, $6) RETURNING id',
       values: [id, playlistId, songId, userId, action, time],
     };
     await this._pool.query(query);
   }
 
-  // Mendapatkan aktivitas playlist (Kriteria Opsional 2)
   async getPlaylistActivities(playlistId) {
     const query = {
       text: `

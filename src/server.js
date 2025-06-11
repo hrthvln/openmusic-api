@@ -3,7 +3,7 @@
 require('dotenv').config(); // Memuat variabel lingkungan dari .env
 
 const Hapi = require('@hapi/hapi');
-const Jwt = require('@hapi/jwt');
+const Jwt = require('@hapi/jwt'); // Import plugin JWT
 
 // Plugins
 const albums = require('./api/albums');
@@ -116,7 +116,7 @@ const init = async () => {
       options: {
         service: playlistsService,
         validator: PlaylistsValidator,
-        songsService: songsService,
+        songsService: songsService, // <--- VERIFIKASI: Pastikan ini diteruskan
       },
     },
     {
