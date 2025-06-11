@@ -3,7 +3,9 @@
 const autoBind = require('auto-bind');
 
 class PlaylistsHandler {
-  constructor(service, validator) {
+/*************  ✨ Windsurf Command ⭐  *************/
+  /**
+/*******  f2b57041-85eb-4d89-b08a-be1c542df52b  *******/  constructor(service, validator, songsService) {
     this._service = service;
     this._validator = validator;
     this._songsService = songsService;
