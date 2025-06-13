@@ -1,167 +1,217 @@
-// Ini adalah file utama untuk menginisialisasi server Hapi.
+require('dotenv').config();
 
-require('dotenv').config(); // Memuat variabel lingkungan dari .env
+    const Hapi = require('@hapi/hapi');
+    const Jwt = require('@hapi/jwt');
+    const Inert = require('@hapi/inert');
 
-const Hapi = require('@hapi/hapi');
-const Jwt = require('@hapi/jwt'); // Import plugin JWT
+    const config = require('./utils/config');
 
-// Plugins
-const albums = require('./api/albums');
-const songs = require('./api/songs');
-const users = require('./api/users'); // Plugin untuk pengguna
-const authentications = require('./api/authentications'); // Plugin untuk autentikasi
-const playlists = require('./api/playlists'); // Plugin untuk playlist
-const collaborations = require('./api/collaborations'); // Plugin untuk kolaborasi (opsional)
+    const albums = require('./api/albums');
+    const songs = require('./api/songs');
+    const users = require('./api/users');
+    const authentications = require('./api/authentications');
+    const playlists = require('./api/playlists');
+    const collaborations = require('./api/collaborations');
+    const _exports = require('./api/exports');
+    const uploads = require('./api/uploads');
+    const userAlbumLikes = require('./api/userAlbumLikes');
 
-// Services
-const AlbumsService = require('./services/postgres/AlbumsService');
-const SongsService = require('./services/postgres/SongsService');
-const UsersService = require('./services/postgres/UsersService'); // Service untuk pengguna
-const AuthenticationsService = require('./services/postgres/AuthenticationsService'); // Service untuk autentikasi
-const PlaylistsService = require('./services/postgres/PlaylistsService'); // Service untuk playlist
-const CollaborationsService = require('./services/postgres/CollaborationsService'); // Service untuk kolaborasi (opsional)
+    const AlbumsService = require('./services/postgres/AlbumsService');
+    const SongsService = require('./services/postgres/SongsService');
+    const UsersService = require('./services/postgres/UsersService');
+    const AuthenticationsService = require('./services/postgres/AuthenticationsService');
+    const PlaylistsService = require('./services/postgres/PlaylistsService');
+    const CollaborationsService = require('./services/postgres/CollaborationsService');
+    const ProducerService = require('./services/rabbitmq/ProducerService');
+    const StorageService = require('./services/storage/StorageService');
+    const CacheService = require('./services/redis/CacheService');
+    const UserAlbumLikesService = require('./services/postgres/UserAlbumLikesService');
 
-// Validators
-const AlbumsValidator = require('./validator/albums');
-const SongsValidator = require('./validator/songs');
-const UsersValidator = require('./validator/users'); // Validator untuk pengguna
-const AuthenticationsValidator = require('./validator/authentications'); // Validator untuk autentikasi
-const PlaylistsValidator = require('./validator/playlists'); // Validator untuk playlist
-const CollaborationsValidator = require('./validator/collaborations'); // Validator untuk kolaborasi (opsional)
+    const AlbumsValidator = require('./validator/albums');
+    const SongsValidator = require('./validator/songs');
+    const UsersValidator = require('./validator/users');
+    const AuthenticationsValidator = require('./validator/authentications');
+    const PlaylistsValidator = require('./validator/playlists');
+    const ExportsValidator = require('./validator/exports');
+    const UploadsValidator = require('./validator/uploads');
+    const CollaborationsValidator = require('./validator/collaborations');
+    const UserAlbumLikesValidator = require('./validator/userAlbumLikes');
 
-// Token Manager
-const TokenManager = require('./tokenize/TokenManager');
+    const TokenManager = require('./tokenize/TokenManager');
 
-// Custom Errors
-const ClientError = require('./exceptions/ClientError');
+    const ClientError = require('./exceptions/ClientError');
+    const PayloadTooLargeError = require('./exceptions/PayloadTooLargeError');
 
-const init = async () => {
-  // Inisialisasi service
-  const usersService = new UsersService();
-  const authenticationsService = new AuthenticationsService();
-  const collaborationsService = new CollaborationsService(); // Inisialisasi service kolaborasi
-  const playlistsService = new PlaylistsService(collaborationsService); // PlaylistsService membutuhkan CollaborationsService
-  const albumsService = new AlbumsService();
-  const songsService = new SongsService();
+    const init = async () => {
+      const cacheService = new CacheService();
+      const usersService = new UsersService();
+      const authenticationsService = new AuthenticationsService();
+      const collaborationsService = new CollaborationsService();
+      const playlistsService = new PlaylistsService(collaborationsService);
+      const albumsService = new AlbumsService();
+      const songsService = new SongsService();
+      const storageService = new StorageService();
+      const userAlbumLikesService = new UserAlbumLikesService(cacheService);
 
-  // Konfigurasi server Hapi
-  const server = Hapi.server({
-    host: process.env.HOST,
-    port: process.env.PORT,
-    routes: {
-      cors: {
-        origin: ['*'],
-      },
-    },
-  });
-
-  // Mendaftarkan plugin JWT
-  await server.register([
-    {
-      plugin: Jwt,
-    },
-  ]);
-
-  // Mendefinisikan strategi autentikasi JWT
-  server.auth.strategy('openmusic_jwt', 'jwt', {
-    keys: process.env.ACCESS_TOKEN_KEY, // Kunci rahasia untuk memverifikasi token
-    verify: {
-      aud: false,
-      iss: false,
-      sub: false,
-      maxAgeSec: process.env.ACCESS_TOKEN_AGE || 3600, // Durasi token (default 1 jam)
-    },
-    validate: (artifacts) => ({
-      isValid: true,
-      credentials: {
-        id: artifacts.decoded.payload.userId, // Mengambil userId dari payload JWT
-      },
-    }),
-  });
-
-  // Mendaftarkan plugins API
-  await server.register([
-    {
-      plugin: albums,
-      options: {
-        service: albumsService,
-        validator: AlbumsValidator,
-      },
-    },
-    {
-      plugin: songs,
-      options: {
-        service: songsService,
-        validator: SongsValidator,
-      },
-    },
-    {
-      plugin: users,
-      options: {
-        service: usersService,
-        validator: UsersValidator,
-      },
-    },
-    {
-      plugin: authentications,
-      options: {
-        authenticationsService, // Service untuk autentikasi
-        usersService, // Service untuk pengguna
-        tokenManager: TokenManager, // Token manager untuk JWT
-        validator: AuthenticationsValidator, // Validator untuk autentikasi
-      },
-    },
-    {
-      plugin: playlists,
-      options: {
-        service: playlistsService,
-        validator: PlaylistsValidator,
-        songsService: songsService, // <--- VERIFIKASI: Pastikan ini diteruskan
-      },
-    },
-    {
-      plugin: collaborations, // Plugin kolaborasi
-      options: {
-        collaborationsService,
-        playlistsService,
-        usersService,
-        validator: CollaborationsValidator,
-      },
-    },
-  ]);
-
-  // Ekstensi onPreResponse untuk penanganan error global
-  server.ext('onPreResponse', (request, h) => {
-    const { response } = request;
-
-    if (response instanceof Error) {
-      if (response instanceof ClientError) {
-        const newResponse = h.response({
-          status: 'fail',
-          message: response.message,
-        });
-        newResponse.code(response.statusCode);
-        return newResponse;
-      }
-
-      if (!response.isServer) {
-        return h.continue;
-      }
-
-      const newResponse = h.response({
-        status: 'error',
-        message: 'Maaf, terjadi kegagalan pada server kami.',
+      const server = Hapi.server({
+        host: config.app.host,
+        port: config.app.port,
+        routes: {
+          cors: {
+            origin: ['*'],
+          },
+          payload: {
+            maxBytes: 512000,
+            failAction: async (request, h, err) => {
+              if (err.output.statusCode === 413) {
+                throw new PayloadTooLargeError('Berkas melebihi batas ukuran 512KB');
+              }
+              throw err;
+            },
+          },
+        },
       });
-      newResponse.code(500);
-      console.error(response);
-      return newResponse;
-    }
 
-    return h.continue;
-  });
+      await server.register([
+        {
+          plugin: Jwt,
+        },
+        {
+          plugin: Inert,
+        },
+      ]);
 
-  await server.start();
-  console.log(`Server berjalan pada ${server.info.uri}`);
-};
+      server.auth.strategy('openmusic_jwt', 'jwt', {
+        keys: config.jwt.accessTokenKey,
+        verify: {
+          aud: false,
+          iss: false,
+          sub: false,
+          maxAgeSec: process.env.ACCESS_TOKEN_AGE || 3600,
+        },
+        validate: (artifacts) => ({
+          isValid: true,
+          credentials: {
+            id: artifacts.decoded.payload.userId,
+          },
+        }),
+      });
 
-init();
+      await server.register([
+        {
+          plugin: albums,
+          options: {
+            service: albumsService,
+            validator: AlbumsValidator,
+            storageService: storageService,
+          },
+        },
+        {
+          plugin: songs,
+          options: {
+            service: songsService,
+            validator: SongsValidator,
+          },
+        },
+        {
+          plugin: users,
+          options: {
+            service: usersService,
+            validator: UsersValidator,
+          },
+        },
+        {
+          plugin: authentications,
+          options: {
+            authenticationsService,
+            usersService,
+            tokenManager: TokenManager,
+            validator: AuthenticationsValidator,
+          },
+        },
+        {
+          plugin: playlists,
+          options: {
+            service: playlistsService,
+            validator: PlaylistsValidator,
+            songsService: songsService,
+            producerService: ProducerService,
+          },
+        },
+        {
+          plugin: _exports,
+          options: {
+            producerService: ProducerService,
+            playlistsService: playlistsService,
+            validator: ExportsValidator,
+          },
+        },
+        {
+          plugin: uploads,
+          options: {
+            storageService,
+            albumsService,
+            validator: UploadsValidator,
+          },
+        },
+        {
+          plugin: collaborations,
+          options: {
+            collaborationsService,
+            playlistsService,
+            usersService,
+            validator: CollaborationsValidator,
+          },
+        },
+        {
+          plugin: userAlbumLikes,
+          options: {
+            service: userAlbumLikesService,
+            albumsService: albumsService,
+            validator: UserAlbumLikesValidator,
+          },
+        },
+      ]);
+
+      server.ext('onPreResponse', (request, h) => {
+        const { response } = request;
+
+        if (response instanceof Error) {
+          if (response instanceof ClientError) {
+            const newResponse = h.response({
+              status: 'fail',
+              message: response.message,
+            });
+            newResponse.code(response.statusCode);
+            return newResponse;
+          }
+          if (response instanceof PayloadTooLargeError) {
+            const newResponse = h.response({
+              status: 'fail',
+              message: response.message,
+            });
+            newResponse.code(response.statusCode);
+            return newResponse;
+          }
+
+          if (!response.isServer) {
+            return h.continue;
+          }
+
+          const newResponse = h.response({
+            status: 'error',
+            message: 'Maaf, terjadi kegagalan pada server kami.',
+          });
+          newResponse.code(500);
+          console.error(response);
+          return newResponse;
+        }
+
+        return h.continue;
+      });
+
+      await server.start();
+      console.log(`Server berjalan pada ${server.info.uri}`);
+    };
+
+    init();

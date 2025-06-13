@@ -1,5 +1,5 @@
 {
-  "databaseUrl": "postgresql://postgres:Lineas1301@localhost:5432/openmusic_v2",
+  "databaseUrl": "postgresql://postgres:Lineas1301@localhost:5432/openmusic_v3",
   "dir": "migrations",
   "migrationsTable": "pgmigrations",
   "schema": "public"
