@@ -1,19 +1,20 @@
-const { Pool } = require('pg');
-const { nanoid } = require('nanoid');
-const InvariantError = require('../../exceptions/InvariantError');
-const NotFoundError = require('../../exceptions/NotFoundError');
+    // File: openmusic-api/src/services/postgres/AlbumsService.js
 
-class AlbumsService {
-  constructor() {
-    this._pool = new Pool();
-  }
+    const { Pool } = require('pg');
+    const { nanoid } = require('nanoid');
+    const InvariantError = require('../../exceptions/InvariantError');
+    const NotFoundError = require('../../exceptions/NotFoundError');
 
-  async addAlbum({ name, year }) {
-    const id = `album-${nanoid(16)}`;
-    const createdAt = new Date().toISOString();
-    const updatedAt = createdAt;
+    class AlbumsService {
+      constructor() {
+        this._pool = new Pool();
+      }
 
-        // Tambahkan kolom cover_url
+      async addAlbum({ name, year }) {
+        const id = `album-${nanoid(16)}`;
+        const createdAt = new Date().toISOString();
+        const updatedAt = createdAt;
+
         const query = {
           text: 'INSERT INTO albums (id, name, year, cover_url, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6) RETURNING id',
           values: [id, name, year, null, createdAt, updatedAt],
@@ -29,15 +30,19 @@ class AlbumsService {
       }
 
       async getAlbums() {
-        // Sesuaikan query untuk mengambil cover_url
         const result = await this._pool.query('SELECT id, name, year, cover_url FROM albums');
-        return result.rows;
+        // PASTIKAN MAPPING INI TERJADI UNTUK SEMUA ALBUM
+        return result.rows.map(album => ({
+          id: album.id,
+          name: album.name,
+          year: album.year,
+          coverUrl: album.cover_url, // Mapping eksplisit
+        }));
       }
 
       async getAlbumById(id) {
-        // Sesuaikan query untuk mengambil cover_url
         const query = {
-          text: 'SELECT id, name, year, cover_url FROM albums WHERE id = $1',
+          text: 'SELECT id, name, year, cover_url FROM albums WHERE id = $1', // PASTIKAN cover_url di SELECT
           values: [id],
         };
         const result = await this._pool.query(query);
@@ -55,6 +60,8 @@ class AlbumsService {
         const album = result.rows[0];
         album.coverUrl = album.cover_url;
         delete album.cover_url;
+        // Hapus properti lama jika diperlukan oleh test
+
         album.songs = songsResult.rows;
 
         return album;
@@ -114,3 +121,4 @@ class AlbumsService {
     }
 
     module.exports = AlbumsService;
+    
